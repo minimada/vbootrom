@@ -16,7 +16,10 @@
  * limitations under the License.
  */
 
-#include <stdint.h>
+typedef unsigned char uint8_t;
+typedef unsigned int uint32_t;
+typedef unsigned long uintptr_t;
+typedef int int32_t;
 
 #define SPI0CS0 0x80000000
 #define CLK 0xf0801000
@@ -78,7 +81,7 @@ uintptr_t load_boot_image(void)
     reg_write(CLK, CLK_CLKSEL, CLK_CLKSEL_DEFAULT);
 
     /* Load the U-BOOT image to DRAM */
-    copy_boot_image(dest_addr, SPI0CS0 + 0x20200, 0xa6e80);
+    copy_boot_image(dest_addr, SPI0CS0 + 0x10e200, 0xa075a);
     /* Set FIU to use 4 byte mode, similar to what TIP does in reality. */
     reg_write(FIU0, FIU_DRD_CFG, 0x0301100b);
 
