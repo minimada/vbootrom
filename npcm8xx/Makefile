@@ -17,7 +17,7 @@ CROSS_COMPILE	?= aarch64-linux-gnu-
 CC		= $(CROSS_COMPILE)gcc
 OBJCOPY		= $(CROSS_COMPILE)objcopy
 
-CFLAGS		= -Os -g -mcpu=cortex-a35
+CFLAGS		= -Os -g -mcpu=cortex-a35 -fstack-protector
 ASFLAGS		= $(CFLAGS) -Wa,-mcpu=cortex-a35
 LDSCRIPT	= bootrom.ld
 LDFLAGS		= -Wl,--build-id=none -static -nostdlib -T $(LDSCRIPT)

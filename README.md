@@ -7,4 +7,5 @@ when emulating NPCM based machines.
 ## Subdirectories
 
 npcm7xx: This subdir contains Boot ROM for NPCM7XX, a 32-bit ARM image.
+
 npcm8xx: This subdir contains Boot ROM for NPCM8XX, a 64-bit ARM image.
