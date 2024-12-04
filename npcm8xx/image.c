@@ -60,7 +60,8 @@ typedef __builtin_va_list va_list;
 #define BB_ANCHOR_VALUE 0x4F4F54AA5508500A
 #define BB_FWLENGTH_OFFSET 0x1FC
 #define BB_OFFSET 0x200
-#define BB_BASE 0x80000
+// #define BB_BASE 0x80000
+static uint32_t BB_BASE = 0; // make BB_BASE changeable
 
 #define BL31_ANCHOR_OFFSET 0x0
 #define BL31_ANCHOR_VALUE 0x43504E31334C420A
@@ -245,11 +246,44 @@ int32_t get_next_image(struct image_info *image, uintptr_t *target_addr)
     return 0;
 }
 
+int32_t get_bb_base(struct image_info *image)
+{
+    uint64_t tag = 0; // BB TAG is 64 bits
+    // search pre-define bb offset, 0, 512K, 2M, and 4M
+    uint32_t const DEFAULT_BB_BASE[] = {0x0, 0x80000, 0x200000, 0x400000};
+    uint32_t i;
+    for (i = 0; i < sizeof(DEFAULT_BB_BASE); i++)
+    {
+        tag = image_read_u64(SPI0CS0, DEFAULT_BB_BASE[i] + image->tag_offset);
+        if (tag ==  image->tag)
+        {
+            image->base_addr = DEFAULT_BB_BASE[i];
+            uprintf("found BB header at: %x\n", image->base_addr);
+            return DEFAULT_BB_BASE[i];
+        }
+    }
+
+    // search range 1M ~ 16M for each 512K
+    uputs("Cannot find BB at default offset, search it...\n");
+    for (i = 0x100000; i < 0x1000000; i += 0x80000)
+    {
+        tag = image_read_u64(SPI0CS0, i + image->tag_offset);
+        if (tag ==  image->tag)
+        {
+            image->base_addr = i;
+            return i;
+        }
+    }
+    uputs("No BB TAG found\n");
+    return -1;
+}
+
 int32_t get_uboot_image(uintptr_t *dest_addr, int32_t *len)
 {
     struct image_info image;
     uintptr_t image_addr = 0;
 
+    /* Fix BB base 0x80000, no need search from TIP and KMT images
     image.base_addr = image_addr;
     image.tag_offset = KMT_ANCHOR_OFFSET;
     image.fwlength_offset = KMT_FWLENGTH_OFFSET;
@@ -285,6 +319,7 @@ int32_t get_uboot_image(uintptr_t *dest_addr, int32_t *len)
     image.tag_size = 64;
     if (get_next_image(&image, &image_addr))
         return -1;
+    */
 
     image_addr = BB_BASE;
     image.base_addr = BB_BASE;
@@ -293,6 +328,8 @@ int32_t get_uboot_image(uintptr_t *dest_addr, int32_t *len)
     image.fw_offset = BB_OFFSET;
     image.tag = BB_ANCHOR_VALUE;
     image.tag_size = 64;
+    if (get_bb_base(&image) < 0)
+        return -1;
     if (get_next_image(&image, &image_addr))
         return -1;
 
