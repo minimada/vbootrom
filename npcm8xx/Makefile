@@ -12,12 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-CROSS_COMPILE	?= aarch64-linux-gnu-
+CROSS_COMPILE	?= aarch64-none-elf-
 
 CC		= $(CROSS_COMPILE)gcc
 OBJCOPY		= $(CROSS_COMPILE)objcopy
+OBJDUMP		= $(CROSS_COMPILE)objdump
 
-CFLAGS		= -Os -g -mcpu=cortex-a35 -fstack-protector
+CFLAGS		= -Os -g -mcpu=cortex-a35 -fstack-protector -mstrict-align
 ASFLAGS		= $(CFLAGS) -Wa,-mcpu=cortex-a35
 LDSCRIPT	= bootrom.ld
 LDFLAGS		= -Wl,--build-id=none -static -nostdlib -T $(LDSCRIPT)
@@ -32,6 +33,9 @@ clean:
 
 npcm8xx_bootrom.bin: npcm8xx_bootrom.elf
 	$(OBJCOPY) -O binary $< $@
+
+npcm8xx_bootrom.asm: npcm8xx_bootrom.elf
+	$(OBJDUMP) -S $< > $@
 
 npcm8xx_bootrom.elf: $(OBJS) $(LDSCRIPT)
 	$(CC) -o $@ $(LDFLAGS) $(OBJS)

@@ -2,6 +2,7 @@
  * Boot image parsing and loading.
  *
  * Copyright 2022 Google LLC
+ * Copyright (c) Nuvoton Technology Corporation.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -36,48 +37,23 @@ typedef __builtin_va_list va_list;
 #define UART0 0xf0000000
 #define UART_TX 0x00
 
-#define KMT_ANCHOR_OFFSET 0x0
-#define KMT_ANCHOR_VALUE 0x2A3B4D5E
-#define KMT_FWLENGTH_OFFSET 132
-#define KMT_KMTMAP_OFFSET 256
-
-#define TIPFW_L0_ANCHOR_OFFSET 0x0
-#define TIPFW_L0_ANCHOR_VALUE 0x9B7A4D5E
-#define TIPFW_L0_FWLENGTH_OFFSET 0x84
-#define TIPFW_L0_OFFSET 0x100
-
-#define SKMT_ANCHOR_OFFSET 0x0
-#define SKMT_ANCHOR_VALUE 0x0A0D0850746D6B73
-#define SKMT_FWLENGTH_OFFSET 0x1FC
-#define SKMT_OFFSET 0x200
-
-#define TIPFW_L1_ANCHOR_OFFSET 0x0
-#define TIPFW_L1_ANCHOR_VALUE 0x0A314C5F5049540A
-#define TIPFW_L1_FWLENGTH_OFFSET 0x1FC
-#define TIPFW_L1_OFFSET 0x200
-
-#define BB_ANCHOR_OFFSET 0x0
+#define BMC_ANCHOR_OFFSET 0x0
 #define BB_ANCHOR_VALUE 0x4F4F54AA5508500A
-#define BB_FWLENGTH_OFFSET 0x1FC
-#define BB_OFFSET 0x200
+#define BL31_ANCHOR_VALUE 0x43504E31334C420A
+#define TEE_ANCHOR_VALUE 0x43504E5F4545540A
+#define UBOOT_ANCHOR_VALUE 0x4C42544F4F42550A
+#define BMC_FWLENGTH_OFFSET 0x1FC
+#define BMC_IMAGE_OFFSET 0x200
+#define BMC_TAG_SIZE 64
 // #define BB_BASE 0x80000
 static uint32_t BB_BASE = 0; // make BB_BASE changeable
+#define BMC_DEST_ADDR_OFFSET 0x1F8
 
-#define BL31_ANCHOR_OFFSET 0x0
-#define BL31_ANCHOR_VALUE 0x43504E31334C420A
-#define BL31_FWLENGTH_OFFSET 0x1FC
-#define BL31_OFFSET 0x200
-
-#define TEE_ANCHOR_OFFSET 0x0
-#define TEE_ANCHOR_VALUE 0x43504E5F4545540A
-#define TEE_FWLENGTH_OFFSET 0x1FC
-#define TEE_OFFSET 0x200
-
-#define UBOOT_ANCHOR_OFFSET 0x0
-#define UBOOT_ANCHOR_VALUE 0x4C42544F4F42550A
-#define UBOOT_FWLENGTH_OFFSET 0x1FC
-#define UBOOT_OFFSET 0x200
-
+#define GCR_PHYS_BA     0xF0800000
+#define TIP_CTRL_BA     0xF080D000
+#define SCRPAD          0x13C
+#define SCRPAD2         0xE08
+#define CP2BST2         0x004
 /*
  * This structure must reside at offset 0x100 in SRAM.
  *
@@ -200,12 +176,13 @@ static void uprintf(const char *fmt, ...)
     va_end(va);
 }
 
-void copy_boot_image(uintptr_t dest_addr, uintptr_t src_addr, int32_t len)
+void copy_boot_image(uintptr_t dest_addr, uintptr_t src_addr, int32_t len,
+    const char* name)
 {
     uint32_t *dst = (uint32_t *)dest_addr;
     uint32_t *src = (uint32_t *)src_addr;
 
-    uprintf("Copying U-Boot from %x to %x, size %x...", src_addr, dest_addr, len);
+    uprintf("Copying %s from %x to %x, size %x...", name, src_addr, dest_addr, len);
     while (len > 0)
     {
         if ((len / 4) % 10000 == 0)
@@ -278,100 +255,73 @@ int32_t get_bb_base(struct image_info *image)
     return -1;
 }
 
-int32_t get_uboot_image(uintptr_t *dest_addr, int32_t *len)
+int32_t load_bmc_image(uintptr_t *dest_addr)
 {
     struct image_info image;
-    uintptr_t image_addr = 0;
+    uintptr_t image_addr = 0, img_dest_addr;
+    uint32_t len;
 
-    /* Fix BB base 0x80000, no need search from TIP and KMT images
-    image.base_addr = image_addr;
-    image.tag_offset = KMT_ANCHOR_OFFSET;
-    image.fwlength_offset = KMT_FWLENGTH_OFFSET;
-    image.fw_offset = KMT_KMTMAP_OFFSET;
-    image.tag = KMT_ANCHOR_VALUE;
-    image.tag_size = 32;
-    if (get_next_image(&image, &image_addr))
-        return -1;
-
-    image.base_addr = image_addr;
-    image.tag_offset = TIPFW_L0_ANCHOR_OFFSET;
-    image.fwlength_offset = TIPFW_L0_FWLENGTH_OFFSET;
-    image.fw_offset = TIPFW_L0_OFFSET;
-    image.tag = TIPFW_L0_ANCHOR_VALUE;
-    image.tag_size = 32;
-    if (get_next_image(&image, &image_addr))
-        return -1;
-
-    image.base_addr = image_addr;
-    image.tag_offset = SKMT_ANCHOR_OFFSET;
-    image.fwlength_offset = SKMT_FWLENGTH_OFFSET;
-    image.fw_offset = SKMT_OFFSET;
-    image.tag = SKMT_ANCHOR_VALUE;
-    image.tag_size = 64;
-    if (get_next_image(&image, &image_addr))
-        return -1;
-
-    image.base_addr = image_addr;
-    image.tag_offset = TIPFW_L1_ANCHOR_OFFSET;
-    image.fwlength_offset = TIPFW_L1_FWLENGTH_OFFSET;
-    image.fw_offset = TIPFW_L1_OFFSET;
-    image.tag = TIPFW_L1_ANCHOR_VALUE;
-    image.tag_size = 64;
-    if (get_next_image(&image, &image_addr))
-        return -1;
-    */
-
-    image_addr = BB_BASE;
-    image.base_addr = BB_BASE;
-    image.tag_offset = BB_ANCHOR_OFFSET;
-    image.fwlength_offset = BB_FWLENGTH_OFFSET;
-    image.fw_offset = BB_OFFSET;
+    image_addr = image.base_addr = BB_BASE;
+    image.tag_offset = BMC_ANCHOR_OFFSET;
+    image.fwlength_offset = BMC_FWLENGTH_OFFSET;
+    image.fw_offset = BMC_IMAGE_OFFSET;
     image.tag = BB_ANCHOR_VALUE;
-    image.tag_size = 64;
-    if (get_bb_base(&image) < 0)
+    image.tag_size = BMC_TAG_SIZE;
+    image_addr = get_bb_base(&image);
+    if (image_addr < 0)
         return -1;
+#define BB_DEST 0xFFFB0000
+    len = image_read_u32(SPI0CS0, image.base_addr + BMC_FWLENGTH_OFFSET);
+    copy_boot_image(BB_DEST, SPI0CS0 + image_addr, len, "BB");
+    *dest_addr = BB_DEST + BMC_IMAGE_OFFSET;
+    if (image_addr == 0)
+    {
+        // no tip case
+        uputs("no tip case\n");
+        *dest_addr = SPI0CS0 + BMC_IMAGE_OFFSET; // need to confirm
+        return 0;
+    }
     if (get_next_image(&image, &image_addr))
         return -1;
 
+    // Load BL31 image
     image.base_addr = image_addr;
-    image.tag_offset = BL31_ANCHOR_OFFSET;
-    image.fwlength_offset = BL31_FWLENGTH_OFFSET;
-    image.fw_offset = BL31_OFFSET;
     image.tag = BL31_ANCHOR_VALUE;
-    image.tag_size = 64;
     if (get_next_image(&image, &image_addr))
         return -1;
+    img_dest_addr = image_read_u32(SPI0CS0, image.base_addr + BMC_DEST_ADDR_OFFSET);
+    len = image_read_u32(SPI0CS0, image.base_addr + BMC_FWLENGTH_OFFSET);
+    copy_boot_image(img_dest_addr, SPI0CS0 + image.base_addr, len, "BL31");
+    //*dest_addr = img_dest_addr + BMC_IMAGE_OFFSET;
+    // write BL31 address to Scratch Pad Register
+    reg_write(GCR_PHYS_BA, SCRPAD, img_dest_addr + BMC_IMAGE_OFFSET);
+    reg_write(GCR_PHYS_BA, SCRPAD2, img_dest_addr + BMC_IMAGE_OFFSET);
 
+    // Load TEE image
     image.base_addr = image_addr;
-    image.tag_offset = TEE_ANCHOR_OFFSET;
-    image.fwlength_offset = TEE_FWLENGTH_OFFSET;
-    image.fw_offset = TEE_OFFSET;
     image.tag = TEE_ANCHOR_VALUE;
-    image.tag_size = 64;
     if (get_next_image(&image, &image_addr))
         return -1;
+    img_dest_addr = image_read_u32(SPI0CS0, image.base_addr + BMC_DEST_ADDR_OFFSET);
+    len = image_read_u32(SPI0CS0, image.base_addr + BMC_FWLENGTH_OFFSET);
+    copy_boot_image(img_dest_addr, SPI0CS0 + image.base_addr, len, "OPTEE");
 
-    // It's expected to be the UBoot start adderess.
-    *dest_addr = image_addr;
-    *len = image_read_u32(SPI0CS0, image_addr + UBOOT_FWLENGTH_OFFSET);
-
+    // Load U-Boot image
     image.base_addr = image_addr;
-    image.tag_offset = UBOOT_ANCHOR_OFFSET;
-    image.fwlength_offset = UBOOT_FWLENGTH_OFFSET;
-    image.fw_offset = UBOOT_OFFSET;
     image.tag = UBOOT_ANCHOR_VALUE;
-    image.tag_size = 64;
     if (get_next_image(&image, &image_addr))
         return -1;
+    img_dest_addr = image_read_u32(SPI0CS0, image.base_addr + BMC_DEST_ADDR_OFFSET);
+    len = image_read_u32(SPI0CS0, image.base_addr + BMC_FWLENGTH_OFFSET);
+    copy_boot_image(img_dest_addr, SPI0CS0 + image.base_addr, len, "U-Boot");
+    //*dest_addr = img_dest_addr + BMC_IMAGE_OFFSET;
 
     return 0;
 }
 
 uintptr_t load_boot_image(void)
 {
-    uintptr_t dest_addr = 0x06208000;
     uintptr_t image_addr = 0;
-    uint32_t len = 0;
     int rc;
 
     uputs(splash_screen);
@@ -379,17 +329,17 @@ uintptr_t load_boot_image(void)
     /* Set CLKSEL to similar values as NPCM7XX */
     reg_write(CLK, CLK_CLKSEL, CLK_CLKSEL_DEFAULT);
 
-    rc = get_uboot_image(&image_addr, &len);
+    rc = load_bmc_image(&image_addr);
     if (rc)
     {
         uputs("Cannot get uboot image address\n");
         return 0;
     }
 
-    /* Load the U-BOOT image to DRAM */
-    copy_boot_image(dest_addr, SPI0CS0 + image_addr + UBOOT_OFFSET, len);
     /* Set FIU to use 4 byte mode, similar to what TIP does in reality. */
     reg_write(FIU0, FIU_DRD_CFG, 0x0301100b);
+    uprintf("Boot FW from %x\n", image_addr);
 
-    return dest_addr;
+    return image_addr;
+    //return 0x6208000;
 }
