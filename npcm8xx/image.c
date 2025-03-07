@@ -278,7 +278,7 @@ int32_t load_bmc_image(uintptr_t *dest_addr)
     {
         // no tip case
         uputs("no tip case\n");
-        *dest_addr = SPI0CS0 + BMC_IMAGE_OFFSET; // need to confirm
+        *dest_addr = SPI0CS0 + BMC_IMAGE_OFFSET;
         return 0;
     }
     if (get_next_image(&image, &image_addr))
@@ -337,9 +337,8 @@ uintptr_t load_boot_image(void)
     }
 
     /* Set FIU to use 4 byte mode, similar to what TIP does in reality. */
-    reg_write(FIU0, FIU_DRD_CFG, 0x0301100b);
+    reg_write(FIU0, FIU_DRD_CFG, 0x0301100c);
     uprintf("Boot FW from %x\n", image_addr);
 
     return image_addr;
-    //return 0x6208000;
 }
