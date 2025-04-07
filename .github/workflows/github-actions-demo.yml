@@ -3,19 +3,37 @@ run-name: ${{ github.actor }} is testing out GitHub Actions
 on:
   push:
     branches:
-      - 'brian/**'
+      - 'brian/workflow*'
 jobs:
   Explore-GitHub-Actions:
     runs-on: [self-hosted, linux, x64]
     steps:
-      - run: echo "🎉 The job was automatically triggered by a ${{ github.event_name }} event."
-      - run: echo "🐧 This job is now running on a ${{ runner.os }} server hosted by GitHub!"
-      - run: echo "🔎 The name of your branch is ${{ github.ref }} and your repository is ${{ github.repository }}."
       - name: Check out repository code
         uses: actions/checkout@v4
-      - run: echo "💡 The ${{ github.repository }} repository has been cloned to the runner."
-      - run: echo "🖥️ The workflow is now ready to test your code on the runner."
+      - name: Install GNU Arm Embedded Toolchain
+        uses: carlosperate/arm-none-eabi-gcc-action@v1
+        with:
+          release: '11.3.Rel1'
+      - name: Print GCC enviroment
+        run: |
+          echo "CROSS_COMPILER_ROOT=" >> "$GITHUB_ENV"
+          echo "CROSS_COMPILE=arm-none-eabi-" >> "$GITHUB_ENV" 
+          arm-none-eabi-gcc --version
+          which arm-none-eabi-gcc
+          which arm-none-eabi-cpp
+          which arm-none-eabi-as
+          which arm-none-eabi-ar
+          which arm-none-eabi-ld
+          which arm-none-eabi-nm
+          which arm-none-eabi-objcopy
+          which arm-none-eabi-objdump
+          which arm-none-eabi-readelf
       - name: List files in the repository
         run: |
           ls ${{ github.workspace }}
-      - run: echo "🍏 This job's status is ${{ job.status }}."
+      - name: make repository
+        run: |
+          cd npcm8xx
+          echo "Current directory: $(pwd)"
+          make
+      - run: echo "This job's status is ${{ job.status }}."
