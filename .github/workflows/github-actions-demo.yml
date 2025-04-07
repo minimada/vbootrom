@@ -11,27 +11,27 @@ jobs:
       - name: Check out repository code
         uses: actions/checkout@v4
       - name: Install GNU Arm Embedded Toolchain
-        uses: carlosperate/arm-none-eabi-gcc-action@v1
+        uses: ./.github/actions/aarch64-none-elf-gcc-action
         with:
-          release: '11.3.Rel1'
+          release: '11.3.rel1'
       - name: Print GCC enviroment
         run: |
           echo "CROSS_COMPILER_ROOT=" >> "$GITHUB_ENV"
-          echo "CROSS_COMPILE=arm-none-eabi-" >> "$GITHUB_ENV" 
-          arm-none-eabi-gcc --version
-          which arm-none-eabi-gcc
-          which arm-none-eabi-cpp
-          which arm-none-eabi-as
-          which arm-none-eabi-ar
-          which arm-none-eabi-ld
-          which arm-none-eabi-nm
-          which arm-none-eabi-objcopy
-          which arm-none-eabi-objdump
-          which arm-none-eabi-readelf
+          echo "CROSS_COMPILE=aarch64-none-elf-" >> "$GITHUB_ENV"
+          aarch64-none-elf-gcc --version
+          which aarch64-none-elf-gcc
+          which aarch64-none-elf-cpp
+          which aarch64-none-elf-as
+          which aarch64-none-elf-ar
+          which aarch64-none-elf-ld
+          which aarch64-none-elf-nm
+          which aarch64-none-elf-objcopy
+          which aarch64-none-elf-objdump
+          which aarch64-none-elf-readelf
       - name: List files in the repository
         run: |
           ls ${{ github.workspace }}
-      - name: make repository
+      - name: Build repository
         run: |
           cd npcm8xx
           echo "Current directory: $(pwd)"

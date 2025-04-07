@@ -1,0 +1,121 @@
+# action test
+# purpose: download aarch64-none-elf from ARM and untar it
+# ref: https://developer.arm.com/downloads/-/arm-gnu-toolchain-downloads
+# env tools: make, tar, xz
+
+name: aarch64-none-elf gcc action
+description: 'Download arm-gnu-toolchain-11.3.rel1-x86_64-aarch64-none-elf.tar.xz'
+
+inputs:
+  release:
+    description: 'gcc release version'
+    required: false
+    default: '11.3.rel1' # ex: 11.3.rel1, 12.3.rel1, 13.3.rel1
+  gcc-prefix:
+    description: 'gcc prefix'
+    required: false
+    default: 'arm-gnu-toolchain-'
+  gcc-host:
+    description: 'gcc host'
+    required: false
+    default: 'x86_64' # ex: x86_64, darwin-x86_64
+  gcc-target:
+    description: 'gcc target'
+    required: false
+    default: 'aarch64-none-elf'
+  gcc-install-path:
+    description: 'where gcc will be installed, default is runner home'
+    required: false
+    default: '/home/runner'
+
+
+outputs:
+  ver-installed:
+    description: "The toolchain version from gcc"
+    value: ${{ steps.get-gcc-version.outputs.GCC_VER }}
+  gcc-ver:
+    description: "The toolchain version from input"
+    value: ${{ steps.convert-gcc-ver.outputs.GCC_VER }}
+
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Convert verion to simple format
+      id: convert-gcc-ver
+      shell: bash
+      run: |
+        MODIFIED_VER=$(echo "${{ inputs.release }}" | tr -d "rel")
+        echo "GCC_VER=${MODIFIED_VER}" >> $GITHUB_OUTPUT
+        echo "GCC_VER=${MODIFIED_VER}"
+
+    # get GCC PATH
+    - name: Get GCC path name
+      id: concat-gcc-path
+      shell: bash
+      run: |
+        GCC_PATH=${{ inputs.gcc-prefix }}${{ inputs.release }}-${{ inputs.gcc-host }}-${{ inputs.gcc-target }}
+        echo "GCC_PATH=${GCC_PATH}" >> $GITHUB_ENV
+        echo "GCC_PATH=${GCC_PATH}" >> $GITHUB_OUTPUT
+        echo "GCC_PATH=${GCC_PATH}"
+
+    - name: Check gcc exist
+      id: check-gcc-exist
+      shell: bash
+      run: |
+        echo "GCC_PATH=${{ env.GCC_PATH }}"
+        echo "GCC_PATH_FULL=${{ env.GCC_PATH_FULL }}" >> $GITHUB_ENV
+        echo "GCC_PATH_FULL=${{ env.GCC_PATH_FULL }}"
+        if [ -d "${GCC_PATH_FULL}" ]; then
+          echo "GCC_EXISTS=true" >> $GITHUB_ENV
+          echo "GCC_EXISTS=true" >> $GITHUB_OUTPUT
+        else
+          echo "GCC_EXISTS=false" >> $GITHUB_ENV
+          echo "GCC_EXISTS=false" >> $GITHUB_OUTPUT
+        fi
+      env:
+        GCC_PATH_FULL: ${{ inputs.gcc-install-path }}/${{ env.GCC_PATH }}
+
+    - name: Install GCC if not exist
+      shell: bash
+      # reference download address at 4/7/2025
+      # https://developer.arm.com/-/media/Files/downloads/gnu/11.3.rel1/binrel/arm-gnu-toolchain-11.3.rel1-x86_64-aarch64-none-elf.tar.xz
+      # TODO: implement checksum verification
+      if: ${{ env.GCC_EXISTS == 'false' }}
+      run: |
+        echo "GCC_EXISTS=false"
+        echo "GCC_URL=${{ env.GCC_URL }}"
+        cd ${{ inputs.gcc-install-path }}
+        curl -L -o gcc.tar.xz ${{ env.GCC_URL }}
+        tar -xf gcc.tar.xz
+      env:
+        GCC_URL: https://developer.arm.com/-/media/Files/downloads/gnu/${{ inputs.release }}/binrel/${{ env.GCC_PATH }}.tar.xz
+
+    - name: Export GCC path
+      shell: bash
+      run: |
+        echo "${{ env.GCC_PATH_FULL }}/bin" >> $GITHUB_PATH
+        echo "Add PATH: ${{ env.GCC_PATH_FULL }}/bin"
+
+    - name: Debug GCC path
+      if: ${{ runner.debug == 'true' }}
+      shell: bash
+      run: |
+        echo "GCC_PATH=${{ env.GCC_PATH }}"
+        echo "GCC_PATH_FULL=${{ env.GCC_PATH_FULL }}"
+        echo "GCC_URL=${{ env.GCC_URL }}"
+        echo "GCC_EXISTS=${{ env.GCC_EXISTS }}"
+        echo "PATH=${PATH}"
+        echo "GITHUB_ENV=${GITHUB_ENV}"
+        echo "GITHUB_OUTPUT=${GITHUB_OUTPUT}"
+        echo "GITHUB_PATH=${GITHUB_PATH}"
+        ls -l ${{ inputs.gcc-install-path }}
+        ls -l ${{ env.GCC_PATH_FULL }}/bin
+
+    - name: Get GCC version
+      id: get-gcc-version
+      shell: bash
+      run: |
+        GCC_VER=$(aarch64-none-elf-gcc --version | head -n 1 | awk '{print $6}')
+        echo "GCC_VER=${GCC_VER}" >> $GITHUB_OUTPUT
+        echo "GCC_VER=${GCC_VER}"
